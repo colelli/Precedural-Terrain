@@ -421,6 +421,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 06885532be89cd14eb301300566d27dd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  drawMode: 1
   mapHeight: 100
   mapWidth: 100
   noiseScale: 26.7
@@ -430,6 +431,13 @@ MonoBehaviour:
   seed: 0
   offset: {x: 0, y: 0}
   autoUpdate: 1
+  mapRegions:
+  - terrainLabel: plain
+    height: 0.7
+    color: {r: 0.3068173, g: 0.9433962, b: 0.21804914, a: 0}
+  - terrainLabel: small hill
+    height: 1
+    color: {r: 0.16162382, g: 0.4339623, b: 0.12486649, a: 1}
 --- !u!4 &738570441
 Transform:
   m_ObjectHideFlags: 0
