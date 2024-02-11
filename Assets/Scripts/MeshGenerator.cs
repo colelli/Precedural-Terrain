@@ -13,8 +13,10 @@ public static class MeshGenerator {
     /// Tale mappa contiene i valori necessari relativi le quote dei singoli vertici.
     /// </summary>
     /// <param name="heightMap">Mappa del "rumore"</param>
+    /// <param name="meshHeightMultiplier">Moltiplicatore altezza mappa</param>
+    /// <param name="meshHeightCurve">Curva per la gestione del moltiplicatore</param>
     /// <returns><c>MeshData</c></returns>
-    public static MeshData GenerateTerrainMesh(float[,] heightMap) {
+    public static MeshData GenerateTerrainMesh(float[,] heightMap, float meshHeightMultiplier, AnimationCurve meshHeightCurve) {
         int width = heightMap.GetLength(0);
         int height = heightMap.GetLength(1);
 
@@ -26,7 +28,7 @@ public static class MeshGenerator {
 
         for(int y = 0; y < height; y++) {
             for(int x = 0; x < width; x++) {
-                meshData.SetVertexAtIndex(vertexIndex, new Vector3(topLeftX + x, heightMap[x,y], topLeftY - y));
+                meshData.SetVertexAtIndex(vertexIndex, new Vector3(topLeftX + x, meshHeightCurve.Evaluate(heightMap[x, y]) * meshHeightMultiplier, topLeftY - y));
                 meshData.SetUvsAtIndex(vertexIndex, new Vector2(x / (float)width, y / (float)height));
 
                 //Aggiungo i triangoli ignorando i "bordi" destro ed inferiore

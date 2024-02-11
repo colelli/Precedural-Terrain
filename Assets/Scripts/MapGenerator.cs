@@ -27,6 +27,8 @@ public class MapGenerator : MonoBehaviour {
     [SerializeField] private bool autoUpdate;
 
     [SerializeField] private TerrainType[] mapRegions;
+    [SerializeField] private float meshHeightMultiplier;
+    [SerializeField] private AnimationCurve meshHeightCurve;
 
 
     /// <summary>
@@ -50,7 +52,7 @@ public class MapGenerator : MonoBehaviour {
                 display.DrawTexture(TextureGenerator.TextureFromColourMap(colourMap, mapWidth, mapHeight));
                 break;
             case DrawMode.DRAW_MESH:
-                display.DrawMesh(MeshGenerator.GenerateTerrainMesh(noiseMap), TextureGenerator.TextureFromColourMap(colourMap, mapWidth, mapHeight));
+                display.DrawMesh(MeshGenerator.GenerateTerrainMesh(noiseMap, meshHeightMultiplier, meshHeightCurve), TextureGenerator.TextureFromColourMap(colourMap, mapWidth, mapHeight));
                 break;
             default:
                 break;
