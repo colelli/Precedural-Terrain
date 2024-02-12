@@ -13,8 +13,10 @@ public class MapGenerator : MonoBehaviour {
     [SerializeField] private DrawMode drawMode;
 
     [Header("Map Configs")]
-    [SerializeField] [Min(1)] private int mapHeight;
-    [SerializeField] [Min(1)] private int mapWidth;
+    //241 perchè < 255 (possiamo massimo avere 255^2 vertici per mesh)
+    //e 241-1=240 che è fattorizzabile come (0,1,2,4,6,8,12)
+    private const int MAP_CHUNK_SIZE = 241;
+    [SerializeField] [Range(0, 6)] [Tooltip("Livello di dettaglio della mesh")] private int levelOfDetail;
     [SerializeField] [Range(0.01f, 99.99f)] private float noiseScale;
 
     [SerializeField] [Tooltip("Numero di ottave")] [Min(1)] private int octaves;
@@ -39,7 +41,7 @@ public class MapGenerator : MonoBehaviour {
     /// - Rendering della Mesh (generazione & rendering della mesh, compresa texture).
     /// </summary>
     public void GenerateMap() {
-        float[,] noiseMap = NoiseGenerator.GenerateNoiseMap(mapWidth, mapHeight, seed, noiseScale, octaves, persistance, lacunarity, offset);
+        float[,] noiseMap = NoiseGenerator.GenerateNoiseMap(MAP_CHUNK_SIZE, MAP_CHUNK_SIZE, seed, noiseScale, octaves, persistance, lacunarity, offset);
 
         Color[] colourMap = GenerateColourMap(noiseMap);
 
@@ -49,10 +51,10 @@ public class MapGenerator : MonoBehaviour {
                 display.DrawTexture(TextureGenerator.TextureFromHeightMap(noiseMap));
                 break;
             case DrawMode.COLOR_MAP:
-                display.DrawTexture(TextureGenerator.TextureFromColourMap(colourMap, mapWidth, mapHeight));
+                display.DrawTexture(TextureGenerator.TextureFromColourMap(colourMap, MAP_CHUNK_SIZE, MAP_CHUNK_SIZE));
                 break;
             case DrawMode.DRAW_MESH:
-                display.DrawMesh(MeshGenerator.GenerateTerrainMesh(noiseMap, meshHeightMultiplier, meshHeightCurve), TextureGenerator.TextureFromColourMap(colourMap, mapWidth, mapHeight));
+                display.DrawMesh(MeshGenerator.GenerateTerrainMesh(noiseMap, meshHeightMultiplier, meshHeightCurve, levelOfDetail), TextureGenerator.TextureFromColourMap(colourMap, MAP_CHUNK_SIZE, MAP_CHUNK_SIZE));
                 break;
             default:
                 break;
@@ -63,17 +65,17 @@ public class MapGenerator : MonoBehaviour {
     //Metodo privato per la generazione della colour map (DrawMode.COLOR_MAP)
     private Color[] GenerateColourMap(float[,] noiseMap) {
 
-        Color[] colourMap = new Color[mapWidth * mapHeight];
+        Color[] colourMap = new Color[MAP_CHUNK_SIZE * MAP_CHUNK_SIZE];
 
-        for(int y = 0; y < mapHeight; y++) {
-            for(int x = 0; x < mapWidth; x++) {
+        for(int y = 0; y < MAP_CHUNK_SIZE; y++) {
+            for(int x = 0; x < MAP_CHUNK_SIZE; x++) {
 
                 float currentHeight = noiseMap[x, y];
 
                 for(int r = 0; r < mapRegions.Length; r++) {
 
                     if(currentHeight <= mapRegions[r].height) {
-                        colourMap[y * mapWidth + x] = mapRegions[r].color;
+                        colourMap[y * MAP_CHUNK_SIZE + x] = mapRegions[r].color;
                         break;
                     }
 
