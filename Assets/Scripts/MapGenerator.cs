@@ -14,7 +14,7 @@ public class MapGenerator : MonoBehaviour {
 
     [Header("Map Configs")]
     //241 perchè < 255 (possiamo massimo avere 255^2 vertici per mesh)
-    //e 241-1=240 che è fattorizzabile come (0,1,2,4,6,8,12)
+    //e 241-1=240 che è fattorizzabile come (1,2,4,6,8,12)
     private const int MAP_CHUNK_SIZE = 241;
     [SerializeField] [Range(0, 6)] [Tooltip("Livello di dettaglio della mesh")] private int levelOfDetail;
     [SerializeField] [Range(0.01f, 99.99f)] private float noiseScale;
@@ -90,6 +90,10 @@ public class MapGenerator : MonoBehaviour {
 
     public bool CanAutoUpdate() {
         return autoUpdate;
+    }
+
+    public static int GetMapChunkSize() {
+        return MAP_CHUNK_SIZE;
     }
 
 }
