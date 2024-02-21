@@ -14,10 +14,11 @@ public static class MeshGenerator {
     /// </summary>
     /// <param name="heightMap">Mappa del "rumore"</param>
     /// <param name="meshHeightMultiplier">Moltiplicatore altezza mappa</param>
-    /// <param name="meshHeightCurve">Curva per la gestione del moltiplicatore</param>
+    /// <param name="_meshHeightCurve">Curva per la gestione del moltiplicatore</param>
     /// <param name="levelOfDetail">Livello di dettaglio della mesh</param>
     /// <returns><c>MeshData</c></returns>
-    public static MeshData GenerateTerrainMesh(float[,] heightMap, float meshHeightMultiplier, AnimationCurve meshHeightCurve, int levelOfDetail) {
+    public static MeshData GenerateTerrainMesh(float[,] heightMap, float meshHeightMultiplier, AnimationCurve _meshHeightCurve, int levelOfDetail) {
+        AnimationCurve meshHeightCurve = new AnimationCurve(_meshHeightCurve.keys);
         int width = heightMap.GetLength(0);
         int height = heightMap.GetLength(1);
 

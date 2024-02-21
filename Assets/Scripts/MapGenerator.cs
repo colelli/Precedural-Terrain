@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System;
+using System.Threading;
 
 /// <summary>
 /// Classe per la generazione della mappa del "rumore" che guida la generazione del terreno casuale (basato sul Perlin Noise).
@@ -32,6 +34,78 @@ public class MapGenerator : MonoBehaviour {
     [SerializeField] private float meshHeightMultiplier;
     [SerializeField] private AnimationCurve meshHeightCurve;
 
+    private Queue<MapThreadInfo<MapData>> mapDataThreadInfoQueue = new Queue<MapThreadInfo<MapData>>();
+    private Queue<MapThreadInfo<MeshData>> meshDataThreadInfoQueue = new Queue<MapThreadInfo<MeshData>>();
+
+    public void DrawMapInEditor() {
+        MapData mapdata = GenerateMapData();
+        MapDisplay display = FindObjectOfType<MapDisplay>();
+        switch (drawMode) {
+            case DrawMode.HEIGHT_MAP:
+                display.DrawTexture(TextureGenerator.TextureFromHeightMap(mapdata.heightMap));
+                break;
+            case DrawMode.COLOR_MAP:
+                display.DrawTexture(TextureGenerator.TextureFromColourMap(mapdata.colourMap, MAP_CHUNK_SIZE, MAP_CHUNK_SIZE));
+                break;
+            case DrawMode.DRAW_MESH:
+                display.DrawMesh(MeshGenerator.GenerateTerrainMesh(mapdata.heightMap, meshHeightMultiplier, meshHeightCurve, levelOfDetail), TextureGenerator.TextureFromColourMap(mapdata.colourMap, MAP_CHUNK_SIZE, MAP_CHUNK_SIZE));
+                break;
+            default:
+                break;
+        }
+    }
+
+    //Creo una chiamata con Callback per gestire la generazione del terreno in un thread diverso
+    //Il metodo di generazione è attivo nel thread in cui viene chiamato
+    public void RequestMapData(Action<MapData> callback) {
+        ThreadStart threadStart = delegate {
+            MapDataThread(callback);
+        };
+
+        new Thread(threadStart).Start();
+    }
+
+    private void MapDataThread(Action<MapData> callback) {
+        MapData mapData = GenerateMapData();
+        //lock server per evitare problemi di accesso concorrenziale da più thread alla stessa variabile
+        lock (mapDataThreadInfoQueue){
+            mapDataThreadInfoQueue.Enqueue(new MapThreadInfo<MapData>(callback, mapData));
+        }
+    }
+
+    public void RequestMeshData(MapData mapdata, Action<MeshData> callback) {
+        ThreadStart threadStart = delegate {
+            MeshDataThread(mapdata, callback);
+        };
+
+        new Thread(threadStart).Start();
+    }
+
+    private void MeshDataThread(MapData mapdata, Action<MeshData> callback) {
+        MeshData meshData = MeshGenerator.GenerateTerrainMesh(mapdata.heightMap, meshHeightMultiplier, meshHeightCurve, levelOfDetail);
+        //lock server per evitare problemi di accesso concorrenziale da più thread alla stessa variabile
+        lock (meshDataThreadInfoQueue) {
+            meshDataThreadInfoQueue.Enqueue(new MapThreadInfo<MeshData>(callback, meshData));
+        }
+    }
+
+    private void Update() {
+        //Verifico se ci sono chiamate di callback nella coda della mapData
+        if(mapDataThreadInfoQueue.Count > 0) {
+            for(int i = 0; i < mapDataThreadInfoQueue.Count; i++) {
+                MapThreadInfo<MapData> threadInfo = mapDataThreadInfoQueue.Dequeue();
+                threadInfo.callback(threadInfo.parameter);
+            }
+        }
+
+        //Verifico se ci sono chiamate di callback nella coda della meshData
+        if(meshDataThreadInfoQueue.Count > 0) {
+            for(int i = 0; i < meshDataThreadInfoQueue.Count; i++) {
+                MapThreadInfo<MeshData> threadInfo = meshDataThreadInfoQueue.Dequeue();
+                threadInfo.callback(threadInfo.parameter);
+            }
+        }
+    }
 
     /// <summary>
     /// Il metodo <c>GenerateMap</c> genera la noiseMap da renderizzare sul piano.<br/>
@@ -40,26 +114,11 @@ public class MapGenerator : MonoBehaviour {
     /// - Mappa dei colori (suddivisa sulla base dei <c>TerrainType</c>);<br/>
     /// - Rendering della Mesh (generazione & rendering della mesh, compresa texture).
     /// </summary>
-    public void GenerateMap() {
+    private MapData GenerateMapData() {
         float[,] noiseMap = NoiseGenerator.GenerateNoiseMap(MAP_CHUNK_SIZE, MAP_CHUNK_SIZE, seed, noiseScale, octaves, persistance, lacunarity, offset);
-
         Color[] colourMap = GenerateColourMap(noiseMap);
 
-        MapDisplay display = FindObjectOfType<MapDisplay>();
-        switch (drawMode) {
-            case DrawMode.HEIGHT_MAP:
-                display.DrawTexture(TextureGenerator.TextureFromHeightMap(noiseMap));
-                break;
-            case DrawMode.COLOR_MAP:
-                display.DrawTexture(TextureGenerator.TextureFromColourMap(colourMap, MAP_CHUNK_SIZE, MAP_CHUNK_SIZE));
-                break;
-            case DrawMode.DRAW_MESH:
-                display.DrawMesh(MeshGenerator.GenerateTerrainMesh(noiseMap, meshHeightMultiplier, meshHeightCurve, levelOfDetail), TextureGenerator.TextureFromColourMap(colourMap, MAP_CHUNK_SIZE, MAP_CHUNK_SIZE));
-                break;
-            default:
-                break;
-        }
-
+        return new MapData(noiseMap, colourMap);
     }
 
     //Metodo privato per la generazione della colour map (DrawMode.COLOR_MAP)
@@ -96,6 +155,16 @@ public class MapGenerator : MonoBehaviour {
         return MAP_CHUNK_SIZE;
     }
 
+    private struct MapThreadInfo<T> {
+        public readonly Action<T> callback;
+        public readonly T parameter;
+
+        public MapThreadInfo(Action<T> callback, T parameter) {
+            this.callback = callback;
+            this.parameter = parameter;
+        }
+    }
+
 }
 
 [System.Serializable]
@@ -103,4 +172,14 @@ public struct TerrainType {
     public string terrainLabel;
     public float height;
     public Color color;
+}
+
+public struct MapData {
+    public readonly float[,] heightMap;
+    public readonly Color[] colourMap;
+
+    public MapData(float[,] heightMap, Color[] colourMap) {
+        this.heightMap = heightMap;
+        this.colourMap = colourMap;
+    }
 }
