@@ -18,7 +18,7 @@ public class MapGenerator : MonoBehaviour {
     //241 perchè < 255 (possiamo massimo avere 255^2 vertici per mesh)
     //e 241-1=240 che è fattorizzabile come (1,2,4,6,8,12)
     private const int MAP_CHUNK_SIZE = 241;
-    [SerializeField] [Range(0, 6)] [Tooltip("Livello di dettaglio della mesh")] private int levelOfDetail;
+    [SerializeField] [Range(0, 6)] [Tooltip("Livello di dettaglio della mesh")] private int editorPreviewLOD;
     [SerializeField] [Range(0.01f, 99.99f)] private float noiseScale;
 
     [SerializeField] [Tooltip("Numero di ottave")] [Min(1)] private int octaves;
@@ -38,7 +38,7 @@ public class MapGenerator : MonoBehaviour {
     private Queue<MapThreadInfo<MeshData>> meshDataThreadInfoQueue = new Queue<MapThreadInfo<MeshData>>();
 
     public void DrawMapInEditor() {
-        MapData mapdata = GenerateMapData();
+        MapData mapdata = GenerateMapData(Vector2.zero);
         MapDisplay display = FindObjectOfType<MapDisplay>();
         switch (drawMode) {
             case DrawMode.HEIGHT_MAP:
@@ -48,7 +48,7 @@ public class MapGenerator : MonoBehaviour {
                 display.DrawTexture(TextureGenerator.TextureFromColourMap(mapdata.colourMap, MAP_CHUNK_SIZE, MAP_CHUNK_SIZE));
                 break;
             case DrawMode.DRAW_MESH:
-                display.DrawMesh(MeshGenerator.GenerateTerrainMesh(mapdata.heightMap, meshHeightMultiplier, meshHeightCurve, levelOfDetail), TextureGenerator.TextureFromColourMap(mapdata.colourMap, MAP_CHUNK_SIZE, MAP_CHUNK_SIZE));
+                display.DrawMesh(MeshGenerator.GenerateTerrainMesh(mapdata.heightMap, meshHeightMultiplier, meshHeightCurve, editorPreviewLOD), TextureGenerator.TextureFromColourMap(mapdata.colourMap, MAP_CHUNK_SIZE, MAP_CHUNK_SIZE));
                 break;
             default:
                 break;
@@ -57,32 +57,32 @@ public class MapGenerator : MonoBehaviour {
 
     //Creo una chiamata con Callback per gestire la generazione del terreno in un thread diverso
     //Il metodo di generazione è attivo nel thread in cui viene chiamato
-    public void RequestMapData(Action<MapData> callback) {
+    public void RequestMapData(Vector2 centre,  Action<MapData> callback) {
         ThreadStart threadStart = delegate {
-            MapDataThread(callback);
+            MapDataThread(centre, callback);
         };
 
         new Thread(threadStart).Start();
     }
 
-    private void MapDataThread(Action<MapData> callback) {
-        MapData mapData = GenerateMapData();
+    private void MapDataThread(Vector2 centre, Action<MapData> callback) {
+        MapData mapData = GenerateMapData(centre);
         //lock server per evitare problemi di accesso concorrenziale da più thread alla stessa variabile
         lock (mapDataThreadInfoQueue){
             mapDataThreadInfoQueue.Enqueue(new MapThreadInfo<MapData>(callback, mapData));
         }
     }
 
-    public void RequestMeshData(MapData mapdata, Action<MeshData> callback) {
+    public void RequestMeshData(MapData mapdata, int lod, Action<MeshData> callback) {
         ThreadStart threadStart = delegate {
-            MeshDataThread(mapdata, callback);
+            MeshDataThread(mapdata, lod, callback);
         };
 
         new Thread(threadStart).Start();
     }
 
-    private void MeshDataThread(MapData mapdata, Action<MeshData> callback) {
-        MeshData meshData = MeshGenerator.GenerateTerrainMesh(mapdata.heightMap, meshHeightMultiplier, meshHeightCurve, levelOfDetail);
+    private void MeshDataThread(MapData mapdata, int lod, Action<MeshData> callback) {
+        MeshData meshData = MeshGenerator.GenerateTerrainMesh(mapdata.heightMap, meshHeightMultiplier, meshHeightCurve, lod);
         //lock server per evitare problemi di accesso concorrenziale da più thread alla stessa variabile
         lock (meshDataThreadInfoQueue) {
             meshDataThreadInfoQueue.Enqueue(new MapThreadInfo<MeshData>(callback, meshData));
@@ -114,8 +114,8 @@ public class MapGenerator : MonoBehaviour {
     /// - Mappa dei colori (suddivisa sulla base dei <c>TerrainType</c>);<br/>
     /// - Rendering della Mesh (generazione & rendering della mesh, compresa texture).
     /// </summary>
-    private MapData GenerateMapData() {
-        float[,] noiseMap = NoiseGenerator.GenerateNoiseMap(MAP_CHUNK_SIZE, MAP_CHUNK_SIZE, seed, noiseScale, octaves, persistance, lacunarity, offset);
+    private MapData GenerateMapData(Vector2 centre) {
+        float[,] noiseMap = NoiseGenerator.GenerateNoiseMap(MAP_CHUNK_SIZE, MAP_CHUNK_SIZE, seed, noiseScale, octaves, persistance, lacunarity, centre + offset);
         Color[] colourMap = GenerateColourMap(noiseMap);
 
         return new MapData(noiseMap, colourMap);
