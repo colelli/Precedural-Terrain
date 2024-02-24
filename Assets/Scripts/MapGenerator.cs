@@ -18,7 +18,8 @@ public class MapGenerator : MonoBehaviour {
     [Header("Map Configs")]
     //241 perchè < 255 (possiamo massimo avere 255^2 vertici per mesh)
     //e 241-1=240 che è fattorizzabile come (1,2,4,6,8,12)
-    private const int MAP_CHUNK_SIZE = 241;
+    //è 239 perchè aggiungo 2 "spazi" in seguito per la generazione del bordo
+    private const int MAP_CHUNK_SIZE = 239;
     [SerializeField] [Range(0, 6)] [Tooltip("Livello di dettaglio della mesh")] private int editorPreviewLOD;
     [SerializeField] [Range(0.01f, 99.99f)] private float noiseScale;
 
@@ -116,7 +117,7 @@ public class MapGenerator : MonoBehaviour {
     /// - Rendering della Mesh (generazione & rendering della mesh, compresa texture).
     /// </summary>
     private MapData GenerateMapData(Vector2 centre) {
-        float[,] noiseMap = NoiseGenerator.GenerateNoiseMap(MAP_CHUNK_SIZE, MAP_CHUNK_SIZE, seed, noiseScale, octaves, normalizeMode, persistance, lacunarity, centre + offset);
+        float[,] noiseMap = NoiseGenerator.GenerateNoiseMap(MAP_CHUNK_SIZE + 2, MAP_CHUNK_SIZE + 2, seed, noiseScale, octaves, normalizeMode, persistance, lacunarity, centre + offset);
         Color[] colourMap = GenerateColourMap(noiseMap);
 
         return new MapData(noiseMap, colourMap);
