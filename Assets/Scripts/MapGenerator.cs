@@ -13,6 +13,7 @@ public class MapGenerator : MonoBehaviour {
 
     [Header("Render Configs")]
     [SerializeField] private DrawMode drawMode;
+    [SerializeField] private NoiseGenerator.NormalizeMode normalizeMode;
 
     [Header("Map Configs")]
     //241 perchè < 255 (possiamo massimo avere 255^2 vertici per mesh)
@@ -115,7 +116,7 @@ public class MapGenerator : MonoBehaviour {
     /// - Rendering della Mesh (generazione & rendering della mesh, compresa texture).
     /// </summary>
     private MapData GenerateMapData(Vector2 centre) {
-        float[,] noiseMap = NoiseGenerator.GenerateNoiseMap(MAP_CHUNK_SIZE, MAP_CHUNK_SIZE, seed, noiseScale, octaves, persistance, lacunarity, centre + offset);
+        float[,] noiseMap = NoiseGenerator.GenerateNoiseMap(MAP_CHUNK_SIZE, MAP_CHUNK_SIZE, seed, noiseScale, octaves, normalizeMode, persistance, lacunarity, centre + offset);
         Color[] colourMap = GenerateColourMap(noiseMap);
 
         return new MapData(noiseMap, colourMap);
@@ -133,8 +134,9 @@ public class MapGenerator : MonoBehaviour {
 
                 for(int r = 0; r < mapRegions.Length; r++) {
 
-                    if(currentHeight <= mapRegions[r].height) {
+                    if (currentHeight >= mapRegions[r].height) {
                         colourMap[y * MAP_CHUNK_SIZE + x] = mapRegions[r].color;
+                    } else {
                         break;
                     }
 

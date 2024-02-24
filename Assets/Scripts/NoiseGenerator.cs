@@ -6,6 +6,8 @@ using UnityEngine;
 /// </summary>
 public static class NoiseGenerator {
 
+    public enum NormalizeMode {LOCAL, GLOBAL};
+
     /// <summary>
     /// Il metodo <c>GenerateNoiseMap</c> si occupa della generazione della mappa utilizzando il Perlin Noise.<br/>
     /// Questo approccio permette di generare mappe casuali (mediante un seed) che possano riportare aspetti quanto più organici.
@@ -18,22 +20,30 @@ public static class NoiseGenerator {
     /// <param name="persistance">Influenza l'amplitudine (influenza) della feature (su un piano 2D viene visualizzato come la y)</param>
     /// <param name="lacunarity">Influenza la frequenza della feature (su un piano 2D viene visualizzato come la x)</param>
     /// <param name="offset">Offset per spostare la mappa (default Vector2.zero)</param>
+    /// <param name="normalizeMode">La modalità di normalizzazione: Locale usa valori reali; Globale usa stime (per la generazione endless)</param>
     /// <returns></returns>
-    public static float[,] GenerateNoiseMap(int mapWidth, int mapHeight, int seed, float scale, int octaves, float persistance = 0.5f, float lacunarity = 2f, Vector2 offset = default(Vector2)) {
+    public static float[,] GenerateNoiseMap(int mapWidth, int mapHeight, int seed, float scale, int octaves, NormalizeMode normalizeMode, float persistance = 0.5f, float lacunarity = 2f, Vector2 offset = default(Vector2)) {
         float[,] noiseMap = new float[mapWidth, mapHeight];
 
         //Creo un nuovo sample per le ottave da generare pseudo-casualmente (basate sul seed)
         System.Random prng = new System.Random(seed);
         Vector2[] octaveOffsets = new Vector2[octaves];
 
-        for(int i = 0; i < octaves; i++) {
+        float maxPossibleHeight = 0;
+        float amplitude = 1f;
+        float frequency = 1f;
+
+        for (int i = 0; i < octaves; i++) {
             float offsetX = prng.Next(-100000, 100000) + offset.x;
-            float offsetY = prng.Next(-100000, 100000) + offset.y;
+            float offsetY = prng.Next(-100000, 100000) - offset.y;
             octaveOffsets[i] = new Vector2(offsetX, offsetY);
+
+            maxPossibleHeight += amplitude;
+            amplitude *= persistance;
         }
 
-        float maxNoiseHeight = float.MinValue;
-        float minNoiseHeight = float.MaxValue;
+        float maxLocalNoiseHeight = float.MinValue;
+        float minLocalNoiseHeight = float.MaxValue;
 
         //Uso queste variabili per "scalare" verso il centro della mappa invece che l'angolo in alto a destra
         float halfWidth = mapWidth / 2f;
@@ -42,13 +52,13 @@ public static class NoiseGenerator {
         for (int y=0; y < mapHeight; y++) {
             for(int x=0; x < mapWidth; x++) {
 
-                float amplitude = 1f;
-                float frequency = 1f;
+                amplitude = 1f;
+                frequency = 1f;
                 float noiseHeight = 0f;
 
                 for(int i=0; i<octaves; i++) {
-                    float sampleX = (x-halfWidth) / scale * frequency + octaveOffsets[i].x;
-                    float sampleY = (y-halfHeight) / scale * frequency + octaveOffsets[i].y;
+                    float sampleX = (x-halfWidth + octaveOffsets[i].x) / scale * frequency;
+                    float sampleY = (y- halfHeight + octaveOffsets[i].y) / scale * frequency;
 
                     //Preso il PerlinNoise lo moltiplico per 2 e sottraggo 1 per poter portare i valori nel range [-1, 1]
                     float perlinValue = Mathf.PerlinNoise(sampleX, sampleY) * 2 - 1;
@@ -60,10 +70,10 @@ public static class NoiseGenerator {
                 }
 
                 //Aggiorno i valori minimi e massimi per poter normalizzare la mappa del rumore
-                if(noiseHeight > maxNoiseHeight) {
-                    maxNoiseHeight = noiseHeight;
-                }else if(noiseHeight < minNoiseHeight) {
-                    minNoiseHeight = noiseHeight;
+                if(noiseHeight > maxLocalNoiseHeight) {
+                    maxLocalNoiseHeight = noiseHeight;
+                }else if(noiseHeight < minLocalNoiseHeight) {
+                    minLocalNoiseHeight = noiseHeight;
                 }
 
                 noiseMap[x, y] = noiseHeight;
@@ -71,22 +81,17 @@ public static class NoiseGenerator {
             }
         }
 
-        noiseMap = NormalizeNoiseMap(minNoiseHeight, maxNoiseHeight, noiseMap);
+        float[,] normalizedMap = new float[mapWidth, mapHeight];
 
-        return noiseMap;
-
-    }
-
-    private static float[,] NormalizeNoiseMap(float min, float max, float[,] noiseMap) {
-
-        int width = noiseMap.GetLength(0);
-        int height = noiseMap.GetLength(1);
-
-        float[,] normalizedMap = new float[width, height];
-
-        for (int y = 0; y < width; y++) {
-            for (int x = 0; x < height; x++) {
-                normalizedMap[x, y] = Mathf.InverseLerp(min, max, noiseMap[x, y]);
+        for (int y = 0; y < mapWidth; y++) {
+            for (int x = 0; x < mapHeight; x++) {
+                if (normalizeMode == NormalizeMode.LOCAL) {
+                    normalizedMap[x, y] = Mathf.InverseLerp(minLocalNoiseHeight, maxLocalNoiseHeight, noiseMap[x, y]);
+                } else {
+                    //La modalità è GLOBAL
+                    float normalizedHeight = (noiseMap[x, y] + 1) / (2f * maxPossibleHeight / 1.25f);
+                    normalizedMap[x, y] = Mathf.Clamp(normalizedHeight, 0, int.MaxValue);
+                }
             }
         }
 
