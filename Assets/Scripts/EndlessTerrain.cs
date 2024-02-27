@@ -93,9 +93,11 @@ public class EndlessTerrain : MonoBehaviour {
         private bool mapDataReceived;
         private MeshRenderer meshRenderer;
         private MeshFilter meshFilter;
+        private MeshCollider meshCollider;
 
         private LODInfo[] detailLevels;
         private LODMesh[] lodMeshes;
+        private LODMesh collisionLODMesh;
 
         private int previousLODIndex = -1;
 
@@ -110,6 +112,7 @@ public class EndlessTerrain : MonoBehaviour {
             meshRenderer = meshObject.AddComponent<MeshRenderer>();
             meshRenderer.material = material;
             meshFilter = meshObject.AddComponent<MeshFilter>();
+            meshCollider = meshObject.AddComponent<MeshCollider>();
             meshObject.transform.position = positionV3 * scale;
             meshObject.transform.parent = parent;
             meshObject.transform.localScale = Vector3.one * scale;
@@ -117,6 +120,9 @@ public class EndlessTerrain : MonoBehaviour {
             lodMeshes = new LODMesh[detailLevels.Length];
             for(int i = 0; i < detailLevels.Length; i++) {
                 lodMeshes[i] = new LODMesh(detailLevels[i].lod, UpdateTerrainChunk);
+                if (detailLevels[i].useForCollider) {
+                    collisionLODMesh = lodMeshes[i];
+                }
             }
 
             SetVisible(false);
@@ -161,6 +167,15 @@ public class EndlessTerrain : MonoBehaviour {
                         meshFilter.mesh = lodMesh.GetMesh();
                     }else if (!lodMesh.HasRequestedMesh()) {
                         lodMesh.RequestMesh(mapData);
+                    }
+                }
+
+                if(lodIndex == 0) {
+                    //Il player è abbastanza vicino per la max resolution
+                    if (collisionLODMesh.HasMesh()) {
+                        meshCollider.sharedMesh = collisionLODMesh.GetMesh();
+                    } else if (!collisionLODMesh.HasRequestedMesh()) {
+                        collisionLODMesh.RequestMesh(mapData);
                     }
                 }
 
@@ -227,6 +242,7 @@ public class EndlessTerrain : MonoBehaviour {
     public struct LODInfo {
         public int lod;
         public float visibleDistanceThreashold;
+        public bool useForCollider;
     }
 
 }
