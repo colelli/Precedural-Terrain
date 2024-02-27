@@ -14,12 +14,13 @@ public class MapGenerator : MonoBehaviour {
     [Header("Render Configs")]
     [SerializeField] private DrawMode drawMode;
     [SerializeField] private NoiseGenerator.NormalizeMode normalizeMode;
+    [SerializeField] private bool useFlatShading;
 
     [Header("Map Configs")]
-    //241 perchè < 255 (possiamo massimo avere 255^2 vertici per mesh)
-    //e 241-1=240 che è fattorizzabile come (1,2,4,6,8,12)
-    //è 239 perchè aggiungo 2 "spazi" in seguito per la generazione del bordo
-    private const int MAP_CHUNK_SIZE = 239;
+    //97 perchè < 255 (possiamo massimo avere 255^2 vertici per mesh)
+    //e 97-1=96 che è fattorizzabile come (1,2,4,6,8,12)
+    //è 95 perchè aggiungo 2 "spazi" in seguito per la generazione del bordo
+    private const int MAP_CHUNK_SIZE = 95;
     [SerializeField] [Range(0, 6)] [Tooltip("Livello di dettaglio della mesh")] private int editorPreviewLOD;
     [SerializeField] [Range(0.01f, 99.99f)] private float noiseScale;
 
@@ -50,7 +51,7 @@ public class MapGenerator : MonoBehaviour {
                 display.DrawTexture(TextureGenerator.TextureFromColourMap(mapdata.colourMap, MAP_CHUNK_SIZE, MAP_CHUNK_SIZE));
                 break;
             case DrawMode.DRAW_MESH:
-                display.DrawMesh(MeshGenerator.GenerateTerrainMesh(mapdata.heightMap, meshHeightMultiplier, meshHeightCurve, editorPreviewLOD), TextureGenerator.TextureFromColourMap(mapdata.colourMap, MAP_CHUNK_SIZE, MAP_CHUNK_SIZE));
+                display.DrawMesh(MeshGenerator.GenerateTerrainMesh(mapdata.heightMap, meshHeightMultiplier, meshHeightCurve, editorPreviewLOD, useFlatShading), TextureGenerator.TextureFromColourMap(mapdata.colourMap, MAP_CHUNK_SIZE, MAP_CHUNK_SIZE));
                 break;
             default:
                 break;
@@ -84,7 +85,7 @@ public class MapGenerator : MonoBehaviour {
     }
 
     private void MeshDataThread(MapData mapdata, int lod, Action<MeshData> callback) {
-        MeshData meshData = MeshGenerator.GenerateTerrainMesh(mapdata.heightMap, meshHeightMultiplier, meshHeightCurve, lod);
+        MeshData meshData = MeshGenerator.GenerateTerrainMesh(mapdata.heightMap, meshHeightMultiplier, meshHeightCurve, lod, useFlatShading);
         //lock server per evitare problemi di accesso concorrenziale da più thread alla stessa variabile
         lock (meshDataThreadInfoQueue) {
             meshDataThreadInfoQueue.Enqueue(new MapThreadInfo<MeshData>(callback, meshData));
